@@ -1,0 +1,155 @@
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: jenkins-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+# spec:
+#   tls:
+#     - secretName: tls-jenkins
+#       hosts:
+#         - example.corp
+#   rules:
+#     - host: example.corp
+#       http:
+#         paths:
+#           - path: /jenkins
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: jenkins
+#                 port:
+#                   name: http-port
+
+# ---
+
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: nexus-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+# spec:
+#   tls:
+#     - secretName: tls-nexus
+#       hosts:
+#         - example.corp
+#   rules:
+#     - host: example.corp
+#       http:
+#         paths:
+#           - path: /nexus
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: nexus
+#                 port:
+#                   name: nexus-port1
+
+# ---
+
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: jenkins
+  namespace: jnk
+spec:
+  type: NodePort
+  ports: 
+    - name: http-port
+      port: 8080
+      targetPort: 8080
+    - name: jnlp-port
+      port: 50000
+      targetPort: 50000
+  selector: 
+    app: jenkins
+
+---
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: nexus
+  namespace: jnk
+spec:
+  type: NodePort
+  ports: 
+    - name: nexus-port1
+      port: 8081
+      targetPort: 8081
+    - name: nexus-port3
+      port: 8083
+      targetPort: 8083
+  selector: 
+    app: sonatype-nexus
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:lts
+          env:
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false
+          ports:
+            - name: http-port
+              containerPort: 8080
+            - name: jnlp-port
+              containerPort: 50000
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+      volumes:
+        - name: jenkins-home
+          emptyDir: {}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonatype-nexus
+  template:
+    metadata:
+      labels:
+        app: sonatype-nexus
+    spec:
+      containers:
+        - name: nexus
+          image: sonatype/nexus3
+          env:
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false
+          ports:
+            - name: nexus-port1
+              containerPort: 8081
+            - name: nexus-port3
+              containerPort: 8083
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+      volumes:
+        - name: nexus-data
+          emptyDir: {}
