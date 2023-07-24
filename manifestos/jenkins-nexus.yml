@@ -139,9 +139,6 @@ spec:
       containers:
         - name: nexus
           image: sonatype/nexus3
-          env:
-            - name: JAVA_OPTS
-              value: -Djenkins.install.runSetupWizard=false
           ports:
             - name: nexus-port1
               containerPort: 8081
