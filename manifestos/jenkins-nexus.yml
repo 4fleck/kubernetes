@@ -32,7 +32,7 @@ spec:
             service:
               name: nexus-sevice
               port:
-                number: 8083
+                number: 8081
 
 ---
 
