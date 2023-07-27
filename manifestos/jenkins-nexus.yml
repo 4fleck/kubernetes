@@ -6,64 +6,65 @@ metadata:
 
 ---
 
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: minimal-ingress
-  namespace: jnk
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/backend-protocol: HTTP
-spec:
-  rules:
-    - host: localhost
-      http:
-        paths:
-        - path: /jenkins
-          pathType: Prefix
-          backend:
-            service:
-              name: jenkins-service
-              port:
-                number: 8080
-        - path: /nexus
-          pathType: Prefix
-          backend:
-            service:
-              name: nexus-sevice
-              port:
-                number: 8081
-
 # apiVersion: networking.k8s.io/v1
 # kind: Ingress
 # metadata:
 #   name: minimal-ingress
 #   namespace: jnk
 #   annotations:
+#     nginx.ingress.kubernetes.io/rewrite-target: /
 #     nginx.ingress.kubernetes.io/backend-protocol: HTTP
 # spec:
-#   ingressClassName: nginx
 #   rules:
-#   - host: admin.jenkins
-#     http:
-#       paths:
-#       - path: /
-#         pathType: Prefix
-#         backend:
+#     - host: cp439pc.etm.corp
+#       http:
+#         paths:
+#         - path: /
+#           pathType: Prefix
+#           backend:
 #             service:
 #               name: jenkins-service
 #               port:
 #                 number: 8080
-#   - host: admin.nexus
-#     http:
-#       paths:
-#       - path: /
-#         pathType: Prefix
-#         backend:
+#         - path: /nexus
+#           pathType: Prefix
+#           backend:
 #             service:
 #               name: nexus-sevice
 #               port:
 #                 number: 8081
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: multihost-ingress
+  namespace: jnk
+  # annotations:
+  #    nginx.ingress.kubernetes.io/rewrite-target: /
+  #   nginx.ingress.kubernetes.io/backend-protocol: HTTP/2
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: admin.jenkins.etm.corp
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+            service:
+              name: jenkins-service
+              port:
+                number: 8080
+  - host: admin.nexus.etm.corp
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+            service:
+              name: nexus-sevice
+              port:
+                number: 8081
 
 ---
 
@@ -114,7 +115,7 @@ metadata:
   name: jenkins
   namespace: jnk
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: jenkins
@@ -123,17 +124,47 @@ spec:
       labels:
         app: jenkins
     spec:
+      # securityContext:
+      #       fsGroup: 1000 
+      #       runAsUser: 1000
+      # serviceAccountName: jenkins-admin
       containers:
         - name: jenkins
           image: jenkins/jenkins:lts
-          env:
-            - name: JAVA_OPTS
-              value: -Djenkins.install.runSetupWizard=false
+          resources:
+            limits:
+              memory: "5Gi"
+              cpu: "2000m"
+            requests:
+              memory: "500Mi"
+              cpu: "500m"
+          # env:
+          #   - name: JAVA_OPTS
+          #     value: -Djenkins.install.runSetupWizard=false
           ports:
             - name: http-port
               containerPort: 8080
             - name: jnlp-port
               containerPort: 50000
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+          # livenessProbe:
+          #   httpGet:
+          #     path: "/login"
+          #     port: 8080
+          #   initialDelaySeconds: 90
+          #   periodSeconds: 10
+          #   timeoutSeconds: 5
+          #   failureThreshold: 5
+          # readinessProbe:
+          #   httpGet:
+          #     path: "/login"
+          #     port: 8080
+          #   initialDelaySeconds: 60
+          #   periodSeconds: 10
+          #   timeoutSeconds: 5
+          #   failureThreshold: 3
           volumeMounts:
             - name: jenkins-home
               mountPath: /var/jenkins_home
